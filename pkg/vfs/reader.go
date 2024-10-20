@@ -829,44 +829,7 @@ func (r *dataReader) readSlice(ctx context.Context, s *meta.Slice, page *chunk.P
 }
 
 func (r *dataReader) Read(ctx context.Context, page *chunk.Page, slices []meta.Slice, offset uint32) int {
-	if len(slices) > 16 {
-		return r.readManySlices(ctx, page, slices, offset)
-	}
-	read := 0
-	var pos uint32
-	errs := make(chan error, 10)
-	waits := 0
-	buf := page.Data
-	size := len(buf)
-	for i := 0; i < len(slices); i++ {
-		if read < size && offset < pos+slices[i].Len {
-			toread := utils.Min(size-read, int(pos+slices[i].Len-offset))
-			go func(s *meta.Slice, p *chunk.Page, off, pos uint32) {
-				defer p.Release()
-				errs <- r.readSlice(ctx, s, p, int(off))
-			}(&slices[i], page.Slice(read, toread), offset-pos, pos)
-			read += toread
-			offset += uint32(toread)
-			waits++
-		}
-		pos += slices[i].Len
-	}
-	for read < size {
-		buf[read] = 0
-		read++
-	}
-	var err error
-	// wait for all goroutine to return, otherwise they may access invalid memory
-	for waits > 0 {
-		if e := <-errs; e != nil {
-			err = e
-		}
-		waits--
-	}
-	if err != nil {
-		return 0
-	}
-	return read
+	return r.readManySlices(ctx, page, slices, offset)
 }
 
 func (r *dataReader) readManySlices(ctx context.Context, page *chunk.Page, slices []meta.Slice, offset uint32) int {
@@ -877,7 +840,14 @@ func (r *dataReader) readManySlices(ctx context.Context, page *chunk.Page, slice
 	waits := 0
 	buf := page.Data
 	size := len(buf)
-	concurrency := make(chan byte, 16)
+
+	concurrent := 2 * runtime.NumCPU()
+
+	if concurrent > len(slices) {
+		concurrent = len(slices)
+	}
+
+	concurrency := make(chan byte, concurrent)
 
 SLICES:
 	for i := 0; i < len(slices); i++ {
