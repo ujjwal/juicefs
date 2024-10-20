@@ -735,7 +735,7 @@ func (r *dataReader) checkReadBuffer() {
 			}
 		}
 		r.Unlock()
-		time.Sleep(time.Second)
+		time.Sleep(100 * time.Millisecond)
 	}
 }
 
