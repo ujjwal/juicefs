@@ -836,12 +836,14 @@ func (r *dataReader) readManySlices(ctx context.Context, page *chunk.Page, slice
 	read := 0
 	var pos uint32
 	var err error
-	errs := make(chan error, 10)
+
 	waits := 0
 	buf := page.Data
 	size := len(buf)
 
-	concurrent := 2 * runtime.NumCPU()
+	concurrent := 128
+
+	errs := make(chan error, concurrent)
 
 	if concurrent > len(slices) {
 		concurrent = len(slices)
