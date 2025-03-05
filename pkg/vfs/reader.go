@@ -704,7 +704,7 @@ type dataReader struct {
 
 func NewDataReader(conf *Config, m meta.Meta, store chunk.ChunkStore) DataReader {
 	var readAheadTotal = int(conf.Chunk.BufferSize / 10 * 8)
-	var readAheadMax = conf.Chunk.BlockSize * 128
+	var readAheadMax = conf.Chunk.BlockSize * 256
 
 	r := &dataReader{
 		m:              m,
